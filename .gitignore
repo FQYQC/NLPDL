@@ -5,4 +5,10 @@
 *.html
 *.zip
 *.gz
+*.weights
+*.model
+*.bin
+*.vocab
+*.optim
 
+Assignment_2/nmt/runs
