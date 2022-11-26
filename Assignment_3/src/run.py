@@ -56,8 +56,12 @@ Don't change above here; write your code below
 
 if args.variant == 'vanilla':
     pass # TODO [part c]: Make some model here
+    GPTModel = model.GPT(mconf).to(device)
 elif args.variant == 'synthesizer':
     pass # TODO [part g]: Make some other model here
+    mconf.synthesizer = True
+    GPTModel = model.GPT(mconf).to(device)
+
 
 # From here on, your code should be identical independent of which
 # variant (vanilla or synthesizer) has been chosen.
@@ -80,7 +84,11 @@ if args.function == 'pretrain':
     #     warmup_tokens=512*20
     #     final_tokens=200*len(pretrain_dataset)*block_size
     #     num_workers=4
-    raise NotImplementedError
+    tconf = trainer.TrainerConfig(max_epochs=650, batch_size=128, learning_rate=6e-3, lr_decay=True, warmup_tokens=512*20, final_tokens=200*len(pretrain_dataset)*block_size, num_workers=4)
+    GPTTrainer = trainer.Trainer(GPTModel, pretrain_dataset, None, tconf)
+    GPTTrainer.train()
+    torch.save(GPTModel.state_dict(), args.writing_params_path)
+
 elif args.function == 'finetune':
     assert args.writing_params_path is not None
     assert args.finetune_corpus_path is not None
@@ -112,12 +120,24 @@ elif args.function == 'finetune':
     #         warmup_tokens=512*20
     #         final_tokens=200*len(pretrain_dataset)*block_size
     #         num_workers=4
-    raise NotImplementedError
+    data = open(args.finetune_corpus_path).read()
+    finetune_dataset = dataset.NameDataset(pretrain_dataset, data)
+
+    if args.reading_params_path is not None:
+        GPTModel.load_state_dict(torch.load(args.reading_params_path))
+        tconf = trainer.TrainerConfig(max_epochs=10, batch_size=256, learning_rate=6e-4, lr_decay=True, warmup_tokens=512*20, final_tokens=200*len(pretrain_dataset)*block_size, num_workers=4)
+    else:
+        tconf = trainer.TrainerConfig(max_epochs=75, batch_size=256, learning_rate=6e-4, lr_decay=True, warmup_tokens=512*20, final_tokens=200*len(pretrain_dataset)*block_size, num_workers=4)
+    
+    modeltrainer = trainer.Trainer(GPTModel, finetune_dataset, None, tconf)
+    modeltrainer.train()
+    torch.save(GPTModel.state_dict(), args.writing_params_path)
+
 elif args.function == 'evaluate':
     assert args.outputs_path is not None
     assert args.reading_params_path is not None
     assert args.eval_corpus_path is not None
-    model.load_state_dict(torch.load(args.reading_params_path))
+    GPTModel.load_state_dict(torch.load(args.reading_params_path))
     correct = 0
     total = 0
     with open(args.outputs_path, 'w') as fout:
@@ -126,7 +146,7 @@ elif args.function == 'evaluate':
             x = line.split('\t')[0]
             x = x + '⁇'
             x = torch.tensor([pretrain_dataset.stoi[s] for s in x], dtype=torch.long)[None,...].to(device)
-            pred = utils.sample(model, x, 32, sample=False)[0]
+            pred = utils.sample(GPTModel, x, 32, sample=False)[0]
             completion = ''.join([pretrain_dataset.itos[int(i)] for i in pred])
             pred = completion.split('⁇')[1]
             predictions.append(pred)
