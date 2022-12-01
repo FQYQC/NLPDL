@@ -1,0 +1,1 @@
+{"report_to": "wandb", "seed": 2022, "model_name_or_path": "bert-base-uncased", "dataset_name": "acl_sup", "output_dir": "outputs/bert_acl", "do_train": true, "do_eval": true, "overwrite_output_dir": true, "num_train_epochs": 50, "per_device_train_batch_size": 128, "evaluation_strategy": "epoch", "use_adapter": false, "adapter_size": 128}
